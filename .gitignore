@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+config.json
+cache.json
+panel_config.json
+hub_config.json
+*.bak*
+*.vbs
+tokscale/
