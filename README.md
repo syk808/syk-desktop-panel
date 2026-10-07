@@ -4,6 +4,8 @@ A small always-on-top desktop panel for Windows, written in plain Python (tkinte
 
 一个 Windows 桌面常驻小面板，纯 Python（tkinter + Pillow）。把每天要看的几样东西放进一个无边框的深色窗口。
 
+![screenshot](docs/screenshot.png)
+
 ## What it shows
 
 | Column | File | What it does |
