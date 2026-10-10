@@ -187,29 +187,24 @@ class Panel:
         subprocess.Popen([sys.executable, os.path.abspath(__file__)], cwd=HERE)
         self.root.destroy()
 
-    # ---- 最小化: 缩成屏幕右下角的一小条, 点一下还原
+    # ---- 最小化: 窗口收起, 任务栏右边的系统托盘里留一个图标; 点图标还原, 鼠标停在上面显示摘要
     def minimize(self):
-        if getattr(self, "mini", None):
+        if getattr(self, "minimized", False):
             return
         self.save()
-        S = self.S
-        m = self.mini = tk.Toplevel(self.root)
-        m.overrideredirect(True)
-        m.configure(bg="#222220")
-        m.attributes("-topmost", True)
-        self.mini_lab = tk.Label(m, text="", bg="#222220", fg=FG, cursor="hand2", font=(FONT, fs(10), "bold"), padx=int(14 * S), pady=int(7 * S))
-        self.mini_lab.pack()
-        self.mini_lab.bind("<Button-1>", lambda e: self.restore())
+        try:
+            if not getattr(self, "tray", None):
+                import tray_icon
+                self.tray = tray_icon.TrayIcon(os.path.join(TOKPAY_DIR, "icon.ico"), "SYK 面板", on_click=self.restore)
+            if not self.tray.show():
+                raise OSError("tray icon was not added")
+        except Exception:
+            return                      # 托盘图标加不上就不收起, 免得窗口消失后找不回来
+        self.minimized = True
         self.root.withdraw()
         self.mini_tick()
-        try:
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(ctypes.windll.user32.GetParent(m.winfo_id()), 33, ctypes.byref(ctypes.c_int(2)), 4)
-        except Exception:
-            pass
 
-    def mini_tick(self):
-        if not getattr(self, "mini", None):
-            return
+    def mini_text(self):
         parts = ["SYK", datetime.now().strftime("%H:%M")]
         try:
             btc = self.apps["mkt"].btc()
@@ -218,22 +213,22 @@ class Panel:
             parts.append(f"回本 {self.apps['pay'].vendor_totals('all')[2]:.1f}×")
         except Exception:
             pass
-        self.mini_lab.config(text="   ·   ".join(parts))
-        m = self.mini
-        m.update_idletasks()
-        class RECT(ctypes.Structure):
-            _fields_ = [("l", ctypes.c_long), ("t", ctypes.c_long), ("r", ctypes.c_long), ("b", ctypes.c_long)]
-        wa = RECT()
-        ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(wa), 0)   # 工作区(不含任务栏)
-        m.geometry(f"+{wa.r - m.winfo_reqwidth() - int(12 * self.S)}+{wa.b - m.winfo_reqheight() - int(10 * self.S)}")
+        return " · ".join(parts)
+
+    def mini_tick(self):
+        if not getattr(self, "minimized", False):
+            return
+        self.tray.set_tip(self.mini_text())
         self.root.after(5000, self.mini_tick)
 
     def restore(self):
-        m, self.mini = self.mini, None
-        if m:
-            m.destroy()
+        if not getattr(self, "minimized", False):
+            return
+        self.minimized = False
+        self.tray.hide()
         self.root.deiconify()
         self.root.attributes("-topmost", bool(self.cfg["pinned"]))
+        self.root.lift()
 
     def drag_start(self, e):
         self.dx, self.dy = e.x_root - self.root.winfo_x(), e.y_root - self.root.winfo_y()
@@ -266,6 +261,8 @@ class Panel:
 
     def quit(self):
         self.save()
+        if getattr(self, "tray", None):
+            self.tray.destroy()
         self.root.destroy()
 
 
