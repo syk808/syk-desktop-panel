@@ -31,12 +31,12 @@ ZOOM = min(2.0, max(0.8, float(CFGD["zoom"])))
 os.environ["SYK_ZOOM"] = str(ZOOM)          # 三个面板统一用这个缩放
 sys.path.insert(0, TOKPAY_DIR)
 os.chdir(TOKPAY_DIR)
-import tokpay_widget, clock_widget, hub, market_widget, loss_widget     # noqa: E402
+import tokpay_widget, clock_widget, hub, market_widget, loss_widget, quota_widget     # noqa: E402
 from datetime import datetime
 
 BG, FG, MUT, TRACK, PILL = "#161615", "#f3f2ee", "#8f8c84", "#34332f", "#3b3a36"
 F, FONT = "Microsoft YaHei UI", "Segoe UI Variable Text"
-TABS = (("mkt", "行情"), ("loss", "亏损"), ("pay", "回本"), ("clock", "时间"), ("hub", "管理"))
+TABS = (("mkt", "行情"), ("loss", "亏损"), ("quota", "额度"), ("pay", "回本"), ("clock", "时间"), ("hub", "管理"))
 MKT_W, COL_W = 268, 440      # 并排模式: 行情栏、亏损栏窄一点, 回本栏和右栏等宽
 
 
@@ -58,7 +58,7 @@ class Panel:
             pass
         self.S = S = max(1.0, r.winfo_fpixels("1i") / 96) * ZOOM
         self.all = self.cfg.get("mode") != "tabs"      # all = 三块并排都显示; tabs = 标签切换
-        self.W = int((MKT_W * 2 + COL_W * 2) * S) if self.all else int(440 * S)
+        self.W = int((MKT_W * 3 + COL_W * 2) * S) if self.all else int(440 * S)
         x = self.cfg["x"] if self.cfg["x"] is not None else r.winfo_screenwidth() - self.W - 24
         y = self.cfg["y"] if self.cfg["y"] is not None else 60
         r.geometry(f"+{x}+{y}")
@@ -110,9 +110,9 @@ class Panel:
             body = tk.Frame(r, bg=BG)
             body.pack(fill="both")
             right = tk.Frame(body, bg=BG)
-            self.frames = {"mkt": tk.Frame(body, bg=BG), "loss": tk.Frame(body, bg=BG), "pay": tk.Frame(body, bg=BG),
-                           "clock": tk.Frame(right, bg=BG), "hub": tk.Frame(right, bg=BG)}
-            for k in ("mkt", "loss", "pay"):          # 行情 | 亏损 | 回本 | 时间+管理, 各占一列
+            self.frames = {"mkt": tk.Frame(body, bg=BG), "loss": tk.Frame(body, bg=BG), "quota": tk.Frame(body, bg=BG),
+                           "pay": tk.Frame(body, bg=BG), "clock": tk.Frame(right, bg=BG), "hub": tk.Frame(right, bg=BG)}
+            for k in ("mkt", "loss", "quota", "pay"):          # 行情 | 亏损 | 额度 | 回本 | 时间+管理, 各占一列
                 self.frames[k].pack(side="left", anchor="n")
             right.pack(side="left", anchor="n")
             self.frames["clock"].pack(anchor="n")
@@ -124,6 +124,7 @@ class Panel:
         self.apps = {
             "mkt": market_widget.App(master=self.frames["mkt"], on_resize=self.fit, width=MKT_W if self.all else 440),
             "loss": loss_widget.App(master=self.frames["loss"], on_resize=self.fit, width=MKT_W if self.all else 440),
+            "quota": quota_widget.App(master=self.frames["quota"], on_resize=self.fit, width=MKT_W if self.all else 440),
             "pay": tokpay_widget.App(master=self.frames["pay"], on_resize=self.fit),
             "clock": clock_widget.App(master=self.frames["clock"], on_resize=self.fit, width=side),
             "hub": hub.App(master=self.frames["hub"], on_resize=self.fit, width=side),
@@ -155,6 +156,8 @@ class Panel:
                 mkt.set_height(target - chrome)
                 loss = self.apps["loss"]
                 loss.set_height(target - (f["loss"].winfo_reqheight() - loss.cv.winfo_reqheight()))
+                quota = self.apps["quota"]
+                quota.set_height(target - (f["quota"].winfo_reqheight() - quota.cv.winfo_reqheight()))
                 self.root.update_idletasks()
             self.root.geometry("")
             self.keep_on_screen()
